@@ -2,18 +2,22 @@
 #
 # natural_selection.py
 # Patate
+"""
+Problems:
+    - two things can't be at the same place
+"""
 import math
 import random
 
-def normalize_vector(vec, val=1):
+def normalize_vector(vec, fillvalue=1):
     new_vec = []
     for val in vec:
         if val > 0:
-            new_vec.append(val)
+            new_vec.append(fillvalue)
         elif val == 0:
             new_vec.append(0)
         elif val < 0:
-            new_vec.append(-val)
+            new_vec.append(-fillvalue)
 
     return new_vec
 
@@ -51,7 +55,8 @@ class Patate(GridObj):
 
         vec_to_candy  = [nearest_candy.x - self.x, nearest_candy.y - self.y]
         print("Vec to candy:", vec_to_candy)
-        norm_vec      = normalize_vector(vec_to_candy, val=self.speed)
+        norm_vec      = normalize_vector(vec_to_candy, fillvalue=self.speed)
+        print("Normed:", norm_vec)
 
         if norm_vec[0] > vec_to_candy[0] and norm_vec[1] > vec_to_candy[1]:
             return vec_to_candy
@@ -110,7 +115,7 @@ class Board:
         self.candies.append(candy)
 
     def del_candy(self, candy):
-        self.grid[candy.y][candy.x] = None
+        #self.grid[candy.y][candy.x] = None
         self.candies.remove(candy)
 
     def del_potato(self, potato):
@@ -229,6 +234,7 @@ def natural_selection(board, nb_gen=10):
                 eatable = potato.can_eat(board)
                 if eatable:
                     potato.eaten_count += 1
+                    print(potato.eaten_count)
                     board.del_candy(eatable)
 
             # No candies left
@@ -242,5 +248,5 @@ def natural_selection(board, nb_gen=10):
         print("Gen {}, {} potatoes alive".format(gen_ix, len(board.potatoes)))
 
 
-board = Board((10,10), init_potatoes_nb=1)
+board = Board((10,10), init_potatoes_nb=2)
 natural_selection(board)
