@@ -7,6 +7,7 @@ Problems:
     - two things can't be at the same place
 """
 import math
+import time
 import random
 
 def normalize_vector(vec, fillvalue=1):
@@ -21,21 +22,58 @@ def normalize_vector(vec, fillvalue=1):
 
     return new_vec
 
-class GridObj:
+class Box:
+    def __init__(self, coords):
+        self.coords = coords
+        self.occupants = []
+
+    def add(self, obj):
+        self.occupants.append(obj)
+
+    def remove(self, obj):
+        self.occupants.remove(obj)
+
     @property
     def x(self):
         return self.coords[0]
 
-    @property 
+    @property
     def y(self):
         return self.coords[1]
 
+class GridObj:
+
+    def __init__(self, box=None):
+        self.box = None
+        self.move(to_box=box)
+
+    @property
+    def x(self):
+        return self.box.coords[0]
+
+    @property
+    def y(self):
+        return self.box.coords[1]
+
+    @property
+    def coords(self):
+        return self.box.coords
+
+    def move(self, to_box):
+        if self.box:
+            self.box.remove(self)
+        self.box = to_box
+        to_box.add(self)
+        
+
 class Patate(GridObj):
-    def __init__(self, coords, speed=1):
-        self.coords = coords
+
+    def __init__(self, box=None, speed=1):
+        super().__init__(box)
         self.speed  = speed
 
         self.eaten_count = 0
+
 
     def find_nearest_candy(self, board):
         min_distance = 999
@@ -51,12 +89,11 @@ class Patate(GridObj):
 
     def next_step(self, board):
         nearest_candy = self.find_nearest_candy(board)
-        print("nearest candy:", nearest_candy.coords)
+        if not nearest_candy:
+            return False
 
         vec_to_candy  = [nearest_candy.x - self.x, nearest_candy.y - self.y]
-        print("Vec to candy:", vec_to_candy)
         norm_vec      = normalize_vector(vec_to_candy, fillvalue=self.speed)
-        print("Normed:", norm_vec)
 
         if norm_vec[0] > vec_to_candy[0] and norm_vec[1] > vec_to_candy[1]:
             return vec_to_candy
@@ -72,8 +109,8 @@ class Patate(GridObj):
 
 
 class Candy(GridObj):
-    def __init__(self, coords):
-        self.coords = coords
+    def __init__(self, box):
+        super().__init__(box)
 
 class Board:
 
@@ -100,34 +137,31 @@ class Board:
         for y in range(self.size[1]):
             line = []
             for x in range(self.size[0]):
-                line.append(None)
+                line.append(Box([x,y]))
 
             self.grid.append(line)
 
     def add_potato(self, x, y):
-        potato = Patate([x, y])
-        self.grid[y][x] = potato
+        box    = self.grid[y][x]
+        potato = Patate(box=box)
         self.potatoes.append(potato)
 
     def add_candy(self, x, y):
-        candy = Candy([x, y])
-        self.grid[y][x] = candy
+        box   = self.grid[y][x]
+        candy = Candy(box=box)
         self.candies.append(candy)
 
     def del_candy(self, candy):
-        #self.grid[candy.y][candy.x] = None
+        candy.box.remove(candy)
         self.candies.remove(candy)
 
     def del_potato(self, potato):
-        self.grid[potato.y][potato.x] = None
+        potato.box.remove(potato)
         self.potatoes.remove(potato)
 
     def move_potato(self, potato, new_pos):
-
-        print("next Pos:", new_pos)
-        self.grid[potato.y][potato.x] = None
-        self.grid[new_pos[1]][new_pos[0]] = potato
-        potato.coords = new_pos
+        new_box = self.grid[new_pos[1]][new_pos[0]]
+        potato.move(new_box)
 
     def first_gen(self):
         self.init_grid()
@@ -182,27 +216,23 @@ class Board:
         box_size = 4
         border   = 1
         # First line = x coords
-        msg = "\t" 
+        msg = "\t"
         for xcoord in range(len(self.grid[0])):
             msg += str(xcoord).center(box_size)
 
         msg += "\n"
-        
         # Line 2 : border up
         msg += "\t" + "#"*(self.size[0]*box_size + border*2)
         msg += "\n"
         for row_ix, row in enumerate(self.grid):
             msg += "{}\t".format(row_ix)+"#"*border
             for val in row:
-                if val is None:
+                if len(val.occupants) == 0:
                     printed = " "
-                elif type(val) == Patate:
+                elif type(val.occupants[0]) == Patate:
                     printed = "P"
-                elif type(val) == Candy:
+                elif type(val.occupants[0]) == Candy:
                     printed = "O"
-                else:
-                    print(type(val))
-                    sys.exit(0)
                 msg += " {} #".format(printed)
 
 
@@ -220,7 +250,6 @@ def natural_selection(board, nb_gen=10):
     for gen_ix in range(nb_gen):
         stop_gen = False
         while not stop_gen:
-            print(board)
             for potato in board.potatoes:
                 # Find next step and move potato 
                 next_step = potato.next_step(board)
@@ -234,18 +263,17 @@ def natural_selection(board, nb_gen=10):
                 eatable = potato.can_eat(board)
                 if eatable:
                     potato.eaten_count += 1
-                    print(potato.eaten_count)
                     board.del_candy(eatable)
 
             # No candies left
             if len(board.candies) == 0:
                 stop_gen = True
 
-            print(board.potatoes[0].coords)
-            input('...')
+            print(board)
+            time.sleep(.1)
 
+        input("###### NEXT GEN ######")
         board.next_gen()
-        print("Gen {}, {} potatoes alive".format(gen_ix, len(board.potatoes)))
 
 
 board = Board((10,10), init_potatoes_nb=2)
