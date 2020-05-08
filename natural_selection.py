@@ -212,7 +212,8 @@ class Board:
             potato.eaten_count = 0
 
 
-    def __repr__(self):
+    def state(self, infos=[]):
+
         box_size = 4
         border   = 1
         # First line = x coords
@@ -224,7 +225,16 @@ class Board:
         # Line 2 : border up
         msg += "\t" + "#"*(self.size[0]*box_size + border*2)
         msg += "\n"
+
+        infos.insert(0, "") # Insert empty line at beginning
+        infos_iter = iter(infos)
+
         for row_ix, row in enumerate(self.grid):
+            try:
+                next_info = next(infos_iter)
+            except StopIteration:
+                next_info = ""
+
             msg += "{}\t".format(row_ix)+"#"*border
             for val in row:
                 if len(val.occupants) == 0:
@@ -237,6 +247,10 @@ class Board:
 
 
             msg += "#"*border
+            # Add info
+            msg += "\t{}".format(next_info)
+
+            # New line
             msg += "\n"
 
         msg += "\t" + "#"*(self.size[0]*box_size + border*2)
@@ -244,15 +258,21 @@ class Board:
         return msg
 
 
-def natural_selection(board, nb_gen=10):
+def natural_selection(board, nb_gen=10, max_days=25, print_state=False):
 
+    timer = 5
     board.first_gen()
     for gen_ix in range(nb_gen):
         stop_gen = False
+        days_nb  = 0
         while not stop_gen:
+            days_nb += 1
             for potato in board.potatoes:
                 # Find next step and move potato 
                 next_step = potato.next_step(board)
+                if not next_step:
+                    break
+
                 potato_pos = [
                     potato.coords[0] + next_step[0],
                     potato.coords[1] + next_step[1]
@@ -269,12 +289,37 @@ def natural_selection(board, nb_gen=10):
             if len(board.candies) == 0:
                 stop_gen = True
 
-            print(board)
-            time.sleep(.1)
+            if days_nb == max_days:
+                stop_gen = True
 
-        input("###### NEXT GEN ######")
+            # Print state
+            if print_state:
+                infos = [
+                    "Gen: " + str(gen_ix),
+                    "Potatoes: " + str(len(board.potatoes)),
+                    "Candies:  " + str(len(board.candies))
+                ]
+                print(board.state(infos=infos))
+                print("\n"*4)
+                time.sleep(.1)
+
+#        if timer == 0:
+#            print("###### NEXT GEN ######")
+#            print("### Potatoes: {}  ###".format(len(board.potatoes)))
+#            input("#####################")
+#            timer =5
+#        else:
+#            timer -= 1
+
+        if not len(board.potatoes):
+            break
         board.next_gen()
 
+    print("{} gens completed".format(gen_ix+1))
+    print("{} Potatoes at the beginning".format(board.init_potatoes_nb))
+    print("{} Potatoes at the end".format(len(board.potatoes)))
 
-board = Board((10,10), init_potatoes_nb=2)
-natural_selection(board)
+
+if __name__ == "__main__":
+    board = Board((10,10), init_potatoes_nb=2, init_candies_nb=5)
+    natural_selection(board, nb_gen=1000, max_days=15, print_state=True)
