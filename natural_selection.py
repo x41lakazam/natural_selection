@@ -9,6 +9,7 @@ Problems:
 import math
 import time
 import random
+import json
 
 def normalize_vector(vec, fillvalue=1):
     new_vec = []
@@ -64,15 +65,22 @@ class GridObj:
             self.box.remove(self)
         self.box = to_box
         to_box.add(self)
-        
+
 
 class Patate(GridObj):
+
+    objs_count = 0
 
     def __init__(self, box=None, speed=1):
         super().__init__(box)
         self.speed  = speed
 
+        self.is_dead = False
         self.eaten_count = 0
+
+        self.id = Patate.objs_count
+        Patate.objs_count += 1
+
 
 
     def find_nearest_candy(self, board):
@@ -108,9 +116,14 @@ class Patate(GridObj):
         return False
 
 
+
 class Candy(GridObj):
+    objs_count = 0
     def __init__(self, box):
         super().__init__(box)
+
+        self.id = Candy.objs_count
+        Candy.objs_count += 1
 
 class Board:
 
@@ -158,6 +171,7 @@ class Board:
     def del_potato(self, potato):
         potato.box.remove(potato)
         self.potatoes.remove(potato)
+        potato.is_dead = True
 
     def move_potato(self, potato, new_pos):
         new_box = self.grid[new_pos[1]][new_pos[0]]
@@ -257,9 +271,22 @@ class Board:
 
         return msg
 
+    def log_state(self, infos={}):
+        potatoes_state = {potato.id: potato.coords for potato in board.potatoes}
+        candies_state  = {candy.id: candy.coords for candy in board.candies}
 
-def natural_selection(board, nb_gen=10, max_days=25, print_state=False):
+        log = {
+            "potatoes_state": potatoes_state,
+            "candies_state": candies_state
+        }
 
+        log.update(infos)
+
+        return log
+
+
+def natural_selection(board, nb_gen=10, max_days=25, print_state=False, log_path=""):
+    state = []
     timer = 5
     board.first_gen()
     for gen_ix in range(nb_gen):
@@ -268,7 +295,7 @@ def natural_selection(board, nb_gen=10, max_days=25, print_state=False):
         while not stop_gen:
             days_nb += 1
             for potato in board.potatoes:
-                # Find next step and move potato 
+                # Find next step and move potato
                 next_step = potato.next_step(board)
                 if not next_step:
                     break
@@ -303,6 +330,9 @@ def natural_selection(board, nb_gen=10, max_days=25, print_state=False):
                 print("\n"*4)
                 time.sleep(.1)
 
+            if log_path:
+                state.append(board.log_state(infos={"Gen":str(gen_ix)}))
+
 #        if timer == 0:
 #            print("###### NEXT GEN ######")
 #            print("### Potatoes: {}  ###".format(len(board.potatoes)))
@@ -315,11 +345,19 @@ def natural_selection(board, nb_gen=10, max_days=25, print_state=False):
             break
         board.next_gen()
 
+    if log_path:
+        with open(log_path, 'w') as f:
+            json.dump(state, f)
+
+
     print("{} gens completed".format(gen_ix+1))
     print("{} Potatoes at the beginning".format(board.init_potatoes_nb))
     print("{} Potatoes at the end".format(len(board.potatoes)))
 
 
 if __name__ == "__main__":
+    GENS = 1
+    DAYS = 1
     board = Board((10,10), init_potatoes_nb=2, init_candies_nb=5)
-    natural_selection(board, nb_gen=1000, max_days=15, print_state=True)
+    natural_selection(board, nb_gen=GENS, max_days=DAYS, print_state=False,
+                      log_path="{}-gen-{}-days.json".format(GENS, DAYS))
